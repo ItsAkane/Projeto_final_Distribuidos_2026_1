@@ -65,11 +65,6 @@ def menu():
         match op:
             case "1":
                 pedido()
-                #o usuario insere o conteudo
-                content = input()
-                #o client cria um pacote com as informacoes relevantes e o conteudo inserido pelo usuario e o envia ao servidor
-                packet = f"{info} {content}"
-                sock.sendall(packet.encode("utf-8"))
 
             case "2":
 
@@ -100,7 +95,6 @@ def pedido():
 
         carrinho.append(op)
 
-
 def pagamento(carrinho):
     for item in carrinho:
         for item in catalogo:
@@ -111,8 +105,6 @@ def pagamento(carrinho):
 
     for item in carrinho:
         sock.sendall(item.nome)
-
-    
 
 def deposito():
 
