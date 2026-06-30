@@ -1,6 +1,9 @@
 import socket
 import sys
 import threading
+import json
+import urllib.request
+import urllib.error
 from processamento_lento.processamento_lento import despachar_processamento, PermissaoNegadaError
 
 # SETOR TOLERANCIA A FALHAS: rede de seguranca para erros do lado do servidor.
@@ -188,6 +191,41 @@ def atender_cliente(conn: socket.socket, endereco):
             print(f"[SERVER] Socket de {endereco} fechado. "
                   f"Threads ativas restantes: {threads_ativas}\n")
 
+def buscar_cep(cep: str) -> str:
+    """
+    SETOR: INTEGRAÇÃO COM APIs (ViaCEP)
+    Efetua a busca de endereço de forma síncrona na API do ViaCEP usando a stdlib.
+    """
+    url = f"https://viacep.com.br/ws/{cep}/json/"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    
+    try:
+        # Timeout de 8s garante que o servidor não fique esperando indefinidamente
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            status = resp.getcode()
+            if status != 200:
+                return f"ERRO_API: servico retornou status {status}"
+                
+            corpo = resp.read().decode("utf-8")
+            dados = json.loads(corpo)
+            
+            # O ViaCEP responde com HTTP 200 mesmo quando o CEP não existe,
+            # então o servidor precisa checar explicitamente o campo "erro"
+            if dados.get("erro"):
+                return f"ERRO_API: nenhum endereco encontrado para o CEP {cep}"
+                
+            # Formata os dados de sucesso para exibição amigável no cliente
+            resposta_formatada = (
+                "ENDERECO ENCONTRADO\n"
+                f"Logradouro: {dados.get('logradouro', 'N/A')}\n"
+                f"Complemento: {dados.get('complemento', 'N/A')}\n"
+                f"Bairro: {dados.get('bairro', 'N/A')}\n"
+                f"Cidade: {dados.get('localidade', 'N/A')}\n"
+                f"UF: {dados.get('uf', 'N/A')}\n"
+            )
+            return resposta_formatada
+    except Exception as exc:
+        return f"ERRO_API: falha ao buscar CEP ({exc})\n"
 
 def processar_requisicao(texto: str, conn: socket.socket, endereco) -> str:
     """
